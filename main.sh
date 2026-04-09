@@ -2,7 +2,7 @@
 set -e
 set -o nounset
 set -o pipefail
-readonly data_home="${XDG_DATA_HOME}/explicit-package-file-watcher"
+readonly data_home="${XDG_CONFIG_HOME}/explicit-package-file-watcher"
 readonly firefox_user_dir=/home/owner/.mozilla/firefox
 readonly obsidian_plugins_file=/home/owner/Documents/notes/.obsidian/community-plugins.json
 readonly cura_data_dir=/home/owner/.local/share/cura/
