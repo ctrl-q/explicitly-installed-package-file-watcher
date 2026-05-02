@@ -57,6 +57,7 @@ monitor(){
             fi
         done
     }
+    # shellcheck disable=SC2016
     exclude_nonexistent_files |
     xargs --no-run-if-empty -L 1000 -P0 inotifywait --quiet --monitor --format '%w%f' |
     xargs --no-run-if-empty -I{} bash -c 'echo $(date),{},"$(ps -o command= -f $(lsof -t {} || echo 0) 2>/dev/null)"'
