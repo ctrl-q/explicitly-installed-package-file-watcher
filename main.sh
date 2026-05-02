@@ -31,7 +31,7 @@ get_files_to_monitor(){
         comm --output-delimiter=, <(sort -u "${packages_to_monitor}") <(sort -u "${packages_to_not_monitor}") |
         grep -vE '^$' |
         awk -F, '
-            NF == 3 { print "ERROR: Package " $NF " is in both packages=to-monitor and packages-to-not-monitor" > "/dev/stderr"; next }
+        NF == 3 { print "ERROR: Package " $NF " is in both packages-to-monitor and packages-to-not-monitor" > "/dev/stderr"; next }
             { print $NF }
         '
     }
