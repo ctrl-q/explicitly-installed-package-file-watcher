@@ -1,40 +1,43 @@
 #!/bin/bash
-set -e
-set -o nounset
-set -o pipefail
-readonly data_home="${XDG_CONFIG_HOME}/explicit-package-file-watcher"
-readonly firefox_user_dir=/home/owner/.mozilla/firefox
-readonly obsidian_plugins_file=/home/owner/Documents/notes/.obsidian/community-plugins.json
-readonly cura_data_dir=/home/owner/.local/share/cura/
-readonly eget_packages_dir=/home/owner/.local/share/eget/packages
-readonly vimplug_dir=/home/owner/.vim/plugged
-readonly vim_systemwide_plugin_dir=/usr/share/vim/vimfiles/plugin
 
-get_files_to_monitor(){
-    local -r packages_to_monitor="${data_home}/packages-to-monitor"
-    local -r packages_to_not_monitor="${data_home}/packages-to-not-monitor"
+readonly data_home="${EXPLICIT_PACKAGE_FILE_WATCHER_DATA_DIR:-${XDG_CONFIG_HOME}/explicit-package-file-watcher}"
+readonly packages_to_monitor="${data_home}/packages-to-monitor"
+readonly packages_to_not_monitor="${data_home}/packages-to-not-monitor"
 
-    get_explicitly_installed_packages(){
-        pikaur -Qqe
+readonly bun_package_file="${EXPLICIT_PACKAGE_FILE_WATCHER_BUN_PACKAGE_FILE:${HOME}/.cache/.bun/install/global/package.json}"
+readonly cura_data_dir="${EXPLICIT_PACKAGE_FILE_WATCHER_CURA_DATA_DIR:-${HOME}/.local/share/cura/}"
+readonly eget_packages_dir="${EXPLICIT_PACKAGE_FILE_WATCHER_EGET_PACKAGES_DIR:-${HOME}/.local/share/eget/packages}"
+readonly firefox_user_dir="${EXPLICIT_PACKAGE_FILE_WATCHER_FIREFOX_USER_DIR:-${HOME}/.mozilla/firefox}"
+readonly obsidian_plugins_file="${EXPLICIT_PACKAGE_FILE_WATCHER_OBSIDIAN_PLUGINS_FILE:-${HOME}/Documents/notes/.obsidian/community-plugins.json}"
+readonly uv_tools_dir="${EXPLICIT_PACKAGE_FILE_WATCHER_UV_TOOLS_DIR:-${XDG_DATA_HOME}/uv/tools}"
+readonly vim_systemwide_plugin_dir="${EXPLICIT_PACKAGE_FILE_WATCHER_VIM_SYSTEMWIDE_PLUGIN_DIR:-/usr/share/vim/vimfiles/plugin}"
+readonly vimplug_dir="${EXPLICIT_PACKAGE_FILE_WATCHER_VIMPLUG_DIR:-${HOME}/.vim/plugged}"
+
+get_explicitly_installed_packages(){
+    pikaur -Qqe
 	jq -r -c '.addons[].id | "firefox:" + .' "${firefox_user_dir}"/*/addons.json
 	jq -r -c '.installed | keys[] | "cura:" + .' "${cura_data_dir}"/*/packages.json
 	jq -r -c '.[] | "obsidian:" + .' "${obsidian_plugins_file}"
 	find "${vimplug_dir}" "${vim_systemwide_plugin_dir}" -mindepth 1 -maxdepth 1 -printf 'vim:%f\n'
 	find "${eget_packages_dir}" -mindepth 1 -printf '%P\n'
-	jq -r -c '.dependencies | keys | map("npm:" + .)[]' /home/owner/.cache/.bun/install/global/package.json
+	jq -r -c '.dependencies | keys | map("npm:" + .)[]' "${bun_package_file}"
 	ya pkg list | awk '/\(/ {print "yazi:" $1}'
-    }
+	find "${uv_tools_dir}" -mindepth 1 -maxdepth 1 -type d -printf '%P\n' | awk -F'- ' '/^- / {print "uv:" $2}'
+}
 
-    get_classified_packages(){
-        touch -a "${packages_to_monitor}" "${packages_to_not_monitor}"
+get_classified_packages(){
+    mkdir "${data_home}"
+    touch -a "${packages_to_monitor}" "${packages_to_not_monitor}"
 
-        comm --output-delimiter=, <(sort -u "${packages_to_monitor}") <(sort -u "${packages_to_not_monitor}") |
-        grep -vE '^$' |
-        awk -F, '
+    comm --output-delimiter=, <(sort -u "${packages_to_monitor}") <(sort -u "${packages_to_not_monitor}") |
+    grep -vE '^$' |
+    awk -F, '
         NF == 3 { print "ERROR: Package " $NF " is in both packages-to-monitor and packages-to-not-monitor" > "/dev/stderr"; next }
-            { print $NF }
-        '
-    }
+        { print $NF }
+    '
+}
+
+get_files_to_monitor(){
 
     comm -13 <(get_explicitly_installed_packages | sort -u) <(get_classified_packages | sort -u) |
     while read -r package; do echo "INFO: Package ${package} not installed" >&2; done
@@ -64,7 +67,7 @@ monitor(){
 }
 
 main(){
-    mkdir -p "${data_home}"
+    set -euo pipefail
     get_files_to_monitor |
     monitor
 }
