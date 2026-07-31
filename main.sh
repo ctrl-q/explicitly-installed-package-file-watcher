@@ -41,10 +41,11 @@ get_files_to_monitor(){
 
     comm -13 <(get_explicitly_installed_packages | sort -u) <(get_classified_packages | sort -u) |
     while read -r package; do echo "INFO: Package ${package} not installed" >&2; done
+    while read -r package; do echo "Package ${package} not installed" >&2; done
 
     comm --output-delimiter=, -2 <(get_explicitly_installed_packages | sort -u) <(get_classified_packages | sort -u) |
     awk -F, '
-        NF == 1 { print "INFO: Package " $NF " has not been classified" > "/dev/stderr"; next }
+        NF == 1 { print "Package " $NF " has not been classified" > "/dev/stderr"; next }
         { print $NF }
     ' |
     comm -12 <(sort -) <(sort "${packages_to_monitor}") |
