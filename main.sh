@@ -1,10 +1,6 @@
 #!/bin/bash
 
-readonly data_home="${EXPLICIT_PACKAGE_FILE_WATCHER_DATA_DIR:-${XDG_CONFIG_HOME}/explicit-package-file-watcher}"
-readonly packages_to_monitor="${data_home}/packages-to-monitor"
-readonly packages_to_not_monitor="${data_home}/packages-to-not-monitor"
-
-readonly bun_package_file="${EXPLICIT_PACKAGE_FILE_WATCHER_BUN_PACKAGE_FILE:${HOME}/.cache/.bun/install/global/package.json}"
+readonly bun_package_file="${EXPLICIT_PACKAGE_FILE_WATCHER_BUN_PACKAGE_FILE:-${HOME}/.cache/.bun/install/global/package.json}"
 readonly cura_data_dir="${EXPLICIT_PACKAGE_FILE_WATCHER_CURA_DATA_DIR:-${HOME}/.local/share/cura/}"
 readonly eget_packages_dir="${EXPLICIT_PACKAGE_FILE_WATCHER_EGET_PACKAGES_DIR:-${HOME}/.local/share/eget/packages}"
 readonly firefox_user_dir="${EXPLICIT_PACKAGE_FILE_WATCHER_FIREFOX_USER_DIR:-${HOME}/.mozilla/firefox}"
@@ -28,7 +24,8 @@ get_explicitly_installed_packages(){
 }
 
 get_classified_packages(){
-    mkdir "${data_home}"
+    readonly packages_to_not_monitor="${data_home}/packages-to-not-monitor"
+
     touch -a "${packages_to_monitor}" "${packages_to_not_monitor}"
 
     comm --output-delimiter=, <(sort -u "${packages_to_monitor}") <(sort -u "${packages_to_not_monitor}") |
@@ -40,12 +37,16 @@ get_classified_packages(){
 }
 
 get_files_to_monitor(){
+    readonly data_home="${EXPLICIT_PACKAGE_FILE_WATCHER_DATA_DIR:-${XDG_CONFIG_HOME}/explicit-package-file-watcher}"
+    readonly packages_to_monitor="${data_home}/packages-to-monitor"
+    explicitly_installed_packages=$(get_explicitly_installed_packages | sort -u)
+    classified_packages=$(get_classified_packages | sort -u)
+    mkdir -p "${data_home}"
 
-    comm -13 <(get_explicitly_installed_packages | sort -u) <(get_classified_packages | sort -u) |
-    while read -r package; do echo "INFO: Package ${package} not installed" >&2; done
+    comm -13 <(cat <<< "${explicitly_installed_packages}") <(cat <<< "${classified_packages}") |
     while read -r package; do echo "Package ${package} not installed" >&2; done
 
-    comm --output-delimiter=, -2 <(get_explicitly_installed_packages | sort -u) <(get_classified_packages | sort -u) |
+    comm --output-delimiter=, -2 <(cat <<< "${explicitly_installed_packages}") <(cat <<< "${classified_packages}") |
     awk -F, '
         NF == 1 { print "Package " $NF " has not been classified" > "/dev/stderr"; next }
         { print $NF }
